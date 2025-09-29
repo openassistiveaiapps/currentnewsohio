@@ -74,6 +74,28 @@ async function summarizeText(text) {
   }
 }
 
+// Lightweight keyword-based categorizer
+function categorizeArticle(article) {
+  const text = ((article.title || "") + " " + (article.description || "") + " " + (article.content || "")).toLowerCase();
+
+  const categories = {
+    politics: /\b(president|senate|congress|election|governor|mayor|policy|law|senator|representative|house|vote|campaign)\b/,
+    sports: /\b(game|score|win|season|goal|nba|mlb|nfl|nhl|soccer|football|basketball|baseball|coach|tournament|match)\b/,
+    entertainment: /\b(movie|film|actor|actress|celebrity|concert|music|album|tv|series|hollywood|netflix|award|oscars)\b/,
+    events: /\b(festival|rally|conference|exhibition|parade|event|ceremony|fair|summit)\b/,
+    technology: /\b(tech|software|hardware|ai|machine learning|startup|google|apple|microsoft|facebook|meta|intel)\b/,
+    business: /\b(market|stocks|stock|shares|economy|company|business|profit|revenue|ipo|bank)\b/,
+    health: /\b(health|covid|vaccine|hospital|doctor|medical|disease|pandemic)\b/,
+  };
+
+  for (const [cat, rx] of Object.entries(categories)) {
+    if (rx.test(text)) return cat;
+  }
+
+  // fallback
+  return 'general';
+}
+
 // Endpoint: Get Ohio News
 app.get("/api/news", async (req, res) => {
   try {
@@ -93,8 +115,9 @@ app.get("/api/news", async (req, res) => {
       },
     });
 
-    const raw = response.data.articles || [];
+  const raw = response.data.articles || [];
     const doSummaries = req.query.summary === "1" || req.query.summary === "true";
+  const doGroup = req.query.group === "1" || req.query.group === "true";
 
     if (doSummaries && !process.env.HUGGINGFACE_API_KEY) {
       console.error('Summaries requested but HUGGINGFACE_API_KEY missing');
@@ -103,8 +126,18 @@ app.get("/api/news", async (req, res) => {
 
     //console.log(`/api/news: fetched ${raw.length} articles. Summaries: ${doSummaries}`);
     if (!doSummaries) {
+      // attach categories quickly
+      const categorized = raw.map(a => ({ ...a, category: categorizeArticle(a) }));
+      if (doGroup) {
+        const grouped = categorized.reduce((acc, cur) => {
+          acc[cur.category] = acc[cur.category] || [];
+          acc[cur.category].push(cur);
+          return acc;
+        }, {});
+        return res.json({ ok: true, count: categorized.length, grouped });
+      }
       // return raw articles for speed
-      return res.json({ ok: true, count: raw.length, articles: raw });
+      return res.json({ ok: true, count: categorized.length, articles: categorized });
     }
 
     // Sequential summarization (safer for rate limits and easier to confirm calls)
@@ -113,7 +146,16 @@ app.get("/api/news", async (req, res) => {
       const textToSummarize = a.description || a.content || a.title || "";
       //console.log("Summarizing article:", a.title, "text length:", textToSummarize.length);
       const summary = await summarizeText(textToSummarize);
-      articles.push({ ...a, summary });
+      articles.push({ ...a, summary, category: categorizeArticle(a) });
+    }
+
+    if (doGroup) {
+      const grouped = articles.reduce((acc, cur) => {
+        acc[cur.category] = acc[cur.category] || [];
+        acc[cur.category].push(cur);
+        return acc;
+      }, {});
+      return res.json({ ok: true, count: articles.length, grouped });
     }
 
     return res.json({ ok: true, count: articles.length, articles });
