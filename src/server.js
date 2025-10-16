@@ -33,7 +33,7 @@ async function summarizeText(text) {
       { inputs: text },
       {
         headers: {
-          Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
+          Authorization: `Bearer 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`,
           "Content-Type": "application/json",
         },
         timeout: 60000,
@@ -100,10 +100,10 @@ function categorizeArticle(article) {
 app.get("/api/news", async (req, res) => {
   try {
     // Validate required environment variables
-    if (!process.env.NEWSAPI_KEY) {
-      console.error('Missing NEWSAPI_KEY in environment');
-      return res.status(400).json({ ok: false, error: 'NEWSAPI_KEY not configured on server' });
-    }
+    // if (!process.env.NEWSAPI_KEY) {
+    //  console.error('Missing NEWSAPI_KEY in environment');
+    //  return res.status(400).json({ ok: false, error: 'NEWSAPI_KEY not configured on server' });
+    // }
     const q = "Ohio OR Columbus OR Cleveland OR Cincinnati OR Dayton OR Akron OR Toledo";
     const response = await axios.get("https://newsapi.org/v2/everything", {
       params: {
@@ -111,7 +111,7 @@ app.get("/api/news", async (req, res) => {
         language: "en",
         pageSize: 15,
         sortBy: "publishedAt",
-        apiKey: process.env.NEWSAPI_KEY,
+        apiKey: "93e0ea8e915a487e90d2736a52b45028" // process.env.NEWSAPI_KEY,
       },
     });
 
@@ -119,10 +119,10 @@ app.get("/api/news", async (req, res) => {
     const doSummaries = req.query.summary === "1" || req.query.summary === "true";
   const doGroup = req.query.group === "1" || req.query.group === "true";
 
-    if (doSummaries && !process.env.HUGGINGFACE_API_KEY) {
-      console.error('Summaries requested but HUGGINGFACE_API_KEY missing');
-      return res.status(400).json({ ok: false, error: 'HUGGINGFACE_API_KEY not configured on server' });
-    }
+    // if (doSummaries) {
+    //  console.error('Summaries requested but HUGGINGFACE_API_KEY missing');
+    //  return res.status(400).json({ ok: false, error: 'HUGGINGFACE_API_KEY not configured on server' });
+    // }
 
     //console.log(`/api/news: fetched ${raw.length} articles. Summaries: ${doSummaries}`);
     if (!doSummaries) {
